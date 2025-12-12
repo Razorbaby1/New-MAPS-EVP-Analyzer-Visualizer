@@ -1,0 +1,55 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build_and_upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node (no cache — ensures no lockfile requirement)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies (prefer lockfile)
+        run: |
+          echo "Attempting npm ci (preferred)..."
+          npm ci --prefer-offline --no-audit --progress=false || (echo "npm ci failed — falling back to npm install" && npm install --prefer-offline --no-audit --progress=false)
+
+      - name: Build (Vite)
+        run: npm run build
+        env:
+          CI: false
+
+      - name: List dist contents (debug)
+        if: always()
+        run: |
+          echo "=== dist tree ==="
+          ls -la dist || true
+          du -sh dist || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build_and_upload
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        with: {}
